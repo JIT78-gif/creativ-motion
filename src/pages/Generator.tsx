@@ -56,42 +56,46 @@ const Generator = () => {
     setError(null);
 
     try {
-      // Prepare FormData for images
+      // Prepare FormData for binary image upload to n8n
       const formDataToSend = new FormData();
       
-      // Add text fields
-      formDataToSend.append('productName', formData.productName);
-      formDataToSend.append('productDescription', formData.productDescription);
-      formDataToSend.append('productCategory', formData.productCategory);
-      formDataToSend.append('keyFeatures', formData.keyFeatures);
-      formDataToSend.append('targetAudience', formData.targetAudience);
-      formDataToSend.append('brandTone', formData.brandTone);
-      formDataToSend.append('videoDuration', formData.videoDuration.toString());
-      formDataToSend.append('adFormat', formData.adFormat);
-      formDataToSend.append('backgroundStyle', formData.backgroundStyle);
-      formDataToSend.append('musicStyle', formData.musicStyle);
-      formDataToSend.append('ctaText', formData.ctaText);
-      formDataToSend.append('additionalInstructions', formData.additionalInstructions);
+      // Add text fields as JSON metadata
+      const metadata = {
+        productName: formData.productName,
+        productDescription: formData.productDescription,
+        productCategory: formData.productCategory,
+        keyFeatures: formData.keyFeatures,
+        targetAudience: formData.targetAudience,
+        brandTone: formData.brandTone,
+        videoDuration: formData.videoDuration,
+        adFormat: formData.adFormat,
+        backgroundStyle: formData.backgroundStyle,
+        musicStyle: formData.musicStyle,
+        ctaText: formData.ctaText,
+        additionalInstructions: formData.additionalInstructions,
+      };
       
-      // Add images
+      formDataToSend.append('metadata', JSON.stringify(metadata));
+      
+      // Add images as binary files
       if (formData.productImage) {
-        formDataToSend.append('productImage', formData.productImage);
+        formDataToSend.append('productImage', formData.productImage, formData.productImage.name);
       }
       
       if (formData.modelImage) {
-        formDataToSend.append('modelImage', formData.modelImage);
+        formDataToSend.append('modelImage', formData.modelImage, formData.modelImage.name);
       }
       
       if (formData.customBackground) {
-        formDataToSend.append('customBackground', formData.customBackground);
+        formDataToSend.append('customBackground', formData.customBackground, formData.customBackground.name);
       }
       
-      // Add additional images
+      // Add additional images as binary files
       formData.additionalImages.forEach((image, index) => {
-        formDataToSend.append(`additionalImage${index}`, image);
+        formDataToSend.append(`additionalImage_${index}`, image, image.name);
       });
 
-      // Call n8n webhook
+      // Call n8n webhook with binary data
       const response = await fetch(webhookUrl, {
         method: 'POST',
         body: formDataToSend,
