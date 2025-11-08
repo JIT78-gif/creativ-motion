@@ -5,12 +5,15 @@ import { ProductDetails } from "@/components/generator/ProductDetails";
 import { VisualAssets } from "@/components/generator/VisualAssets";
 import { AdCustomization } from "@/components/generator/AdCustomization";
 import { LoadingScreen } from "@/components/generator/LoadingScreen";
+import { ErrorScreen } from "@/components/generator/ErrorScreen";
 import { HeroButton } from "@/components/ui/button-variants";
 import { Sparkles } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const Generator = () => {
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     productName: "",
     productCategory: "",
@@ -31,13 +34,101 @@ const Generator = () => {
   });
 
   const handleSubmit = async () => {
+    // Validate required fields
+    if (!formData.productName || !formData.productDescription || !formData.productImage) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields and upload a product image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for webhook URL - in production, this would be an environment variable
+    const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+    
+    if (!webhookUrl) {
+      setError("Webhook not configured. Please contact support.");
+      return;
+    }
+
     setIsGenerating(true);
-    // TODO: Implement n8n webhook integration
-    console.log("Generating video with:", formData);
+    setError(null);
+
+    try {
+      // Prepare FormData for images
+      const formDataToSend = new FormData();
+      
+      // Add text fields
+      formDataToSend.append('productName', formData.productName);
+      formDataToSend.append('productDescription', formData.productDescription);
+      formDataToSend.append('productCategory', formData.productCategory);
+      formDataToSend.append('keyFeatures', formData.keyFeatures);
+      formDataToSend.append('targetAudience', formData.targetAudience);
+      formDataToSend.append('brandTone', formData.brandTone);
+      formDataToSend.append('videoDuration', formData.videoDuration.toString());
+      formDataToSend.append('adFormat', formData.adFormat);
+      formDataToSend.append('backgroundStyle', formData.backgroundStyle);
+      formDataToSend.append('musicStyle', formData.musicStyle);
+      formDataToSend.append('ctaText', formData.ctaText);
+      formDataToSend.append('additionalInstructions', formData.additionalInstructions);
+      
+      // Add images
+      if (formData.productImage) {
+        formDataToSend.append('productImage', formData.productImage);
+      }
+      
+      if (formData.modelImage) {
+        formDataToSend.append('modelImage', formData.modelImage);
+      }
+      
+      if (formData.customBackground) {
+        formDataToSend.append('customBackground', formData.customBackground);
+      }
+      
+      // Add additional images
+      formData.additionalImages.forEach((image, index) => {
+        formDataToSend.append(`additionalImage${index}`, image);
+      });
+
+      // Call n8n webhook
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        body: formDataToSend,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Success - LoadingScreen will show
+      // In production, you might want to poll for completion or use websockets
+      
+    } catch (err) {
+      setIsGenerating(false);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate video';
+      setError(errorMessage);
+      
+      toast({
+        title: "Generation Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
   const totalSteps = 3;
   const progress = (step / totalSteps) * 100;
+
+  if (error) {
+    return <ErrorScreen error={error} onRetry={() => { setError(null); setStep(1); }} />;
+  }
 
   if (isGenerating) {
     return <LoadingScreen />;
