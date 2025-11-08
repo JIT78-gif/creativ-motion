@@ -107,12 +107,16 @@ const Generator = () => {
 
       const data = await response.json();
 
-      if (data.error) {
-        throw new Error(data.error);
+      // Check for various n8n error responses
+      if (data.error || data.status === 'error' || data.success === false) {
+        throw new Error(data.error || data.message || 'Workflow failed during execution');
       }
 
       // Success - LoadingScreen will show
-      // In production, you might want to poll for completion or use websockets
+      toast({
+        title: "Generation Started",
+        description: "Your video is being created",
+      });
       
     } catch (err) {
       setIsGenerating(false);
